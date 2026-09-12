@@ -1,16 +1,52 @@
 @import "tailwindcss";
 
+/* ============================================================
+   STENTOR — Design System Tokens
+   Palette: HSL H190° teal-cyan family (oscilloscope/sonar hue)
+   NOT #3B82F6 (Tailwind blue) — intentional instrument-panel
+   aesthetic per design brief.
+   ============================================================ */
+
+/* --- Tailwind v4 Design Tokens --- */
+
 @theme {
+  /* Typography stacks */
   --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --color-brand: #22C55E;
-  --color-brand-dark: #16A34A;
-  --color-brand-light: #4ADE80;
-  --color-surface: #1E293B;
-  --color-surface-raised: #334155;
+  --font-display: "IBM Plex Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Fira Code", Menlo, monospace;
+
+  /* ── Color tokens (H190° teal-cyan family) ── */
+
+  /* Backgrounds / chassis */
+  --color-base:           #0D1D1F;   /* H190 S35% L6%  — root chassis */
+  --color-surface:        #152224;   /* H190 S32% L11% — panels, cards */
+  --color-surface-raised: #1E3436;   /* H190 S30% L17% — hover, segmented track */
+
+  /* Primary signal accent — NOT Tailwind blue-500 */
+  --color-signal:         #1DCCE0;   /* H190 S85% L55% — live broadcast, CTA */
+  --color-signal-dim:     #0A3A3F;   /* signal at low opacity backgrounds */
+
+  /* Text */
+  --color-text-primary:   #E8F0F1;   /* H190 S8%  L93% — cool white */
+  --color-text-secondary: #6E9193;   /* H190 S15% L52% — labels, descriptions */
+  --color-text-muted:     #3D5456;   /* H190 S17% L30% — disabled, footnotes */
+
+  /* Semantic status */
+  --color-status-active:  #22A66B;   /* desaturated green — voice live, connected */
+  --color-status-warning: #C48D0F;   /* desaturated amber — VAD gate closed */
+  --color-status-error:   #E05040;   /* lifted red (WCAG AA compliant, was #C0392B) */
+  --color-telemetry:      #4AB3C2;   /* teal instrument — latency, packets */
+
+  /* Legacy brand aliases — used in components, mapped to signal */
+  --color-brand:          #1DCCE0;   /* alias → signal */
+  --color-brand-dark:     #0F9BAA;   /* darker signal */
+  --color-brand-light:    #5DE0EF;   /* lighter signal */
 }
 
+/* ── Reset ── */
 * {
   -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
 }
 
 html, body, #root {
@@ -21,35 +57,143 @@ html, body, #root {
 }
 
 body {
-  background-color: #0F172A;
-  color: #F1F5F9;
+  background-color: var(--color-base);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
+/* ── Waveform bar colors via data-state (css-only recoloring) ── */
+/* "live" state = teacher voice active (teal signal) */
+[data-state="live"] .waveform-bar {
+  background-color: hsl(190 85% 55%); /* #1DCCE0 signal */
+}
+/* "waiting" state = connected but no audio yet (amber warning) */
+[data-state="waiting"] .waveform-bar {
+  background-color: hsl(38 86% 38%);  /* #C48D0F warning */
+}
+
+/* ── Instrument telemetry panels (sharp corner enforcement) ── */
+.telemetry-panel {
+  border-radius: 4px;
+  background-color: var(--color-base);
+  border: 1px solid var(--color-surface-raised);
+  font-family: var(--font-mono);
+}
+
+/* ── Liquid Glass Surfaces ── */
+
+/* Primary glass card — for all feature cards, info panels */
+.glass-card {
+  background: linear-gradient(145deg, rgba(29, 204, 224, 0.05) 0%, rgba(21, 34, 36, 0.45) 100%);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+    0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Raised glass — for popups, modals, roster overlay */
+.glass-popup {
+  background: rgba(21, 34, 36, 0.65);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(29, 204, 224, 0.06);
+}
+
+/* Glass pill — for status badges, header tags */
+.glass-pill {
+  background: rgba(29, 204, 224, 0.08);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgba(29, 204, 224, 0.18);
+}
+
+/* Glass button — for secondary action buttons */
+.glass-btn {
+  background: rgba(21, 34, 36, 0.5);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+.glass-btn:hover {
+  background: rgba(30, 52, 54, 0.7);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Glass footer — for compact telemetry strips */
+.glass-footer {
+  background: rgba(13, 29, 31, 0.6);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Glass overlay backdrop for modals/popups */
+.glass-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Custom scrollbar ── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--color-surface-raised); border-radius: 2px; }
 
-/* Audio level meter animation */
+/* ── Keyframes ── */
 @keyframes level-pulse {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
 
-/* Smooth ring pulse for broadcasting */
 @keyframes ring-expand {
-  0% { transform: scale(1); opacity: 0.4; }
-  100% { transform: scale(2.2); opacity: 0; }
+  0%   { transform: scale(1);   opacity: 0.4; }
+  100% { transform: scale(2.2); opacity: 0;   }
 }
 
+/* ── Ring pulse (signal teal) ── */
 .ring-pulse {
+  background-color: var(--color-signal);
   animation: ring-expand 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
 }
 
 .ring-pulse-delayed {
+  background-color: var(--color-signal);
   animation: ring-expand 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
   animation-delay: 0.8s;
 }
+
+/* ── prefers-reduced-motion: kill all animations ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .ring-pulse,
+  .ring-pulse-delayed {
+    animation: none !important;
+  }
+}
+
+/* ── Focus rings (WCAG AA keyboard nav) ── */
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+}
+
+/* ── Button cursor states ── */
+button:not(:disabled) { cursor: pointer; }
+button:disabled       { cursor: not-allowed; }
+input[type="range"]   { cursor: ns-resize; }

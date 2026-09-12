@@ -134,6 +134,95 @@ export function useRemoteAudioLevel(room: Room | undefined): number {
 }
 
 /**
+ * Hook that returns real-time FFT frequency data from a track.
+ * Used for the EQ bars visualizer.
+ */
+export function useAudioFrequency(track: MediaStreamTrack | null | undefined): Uint8Array | null {
+  const [data, setData] = useState<Uint8Array | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
+  const rafRef = useRef<number>(0);
+  const dataRef = useRef<Uint8Array | null>(null);
+
+  useEffect(() => {
+    if (!track) {
+      setData(null);
+      return;
+    }
+    try {
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64; // Small FFT for ~32 bins
+      analyser.smoothingTimeConstant = 0.8;
+
+      const stream = new MediaStream([track]);
+      const source = ctx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      ctxRef.current = ctx;
+      analyserRef.current = analyser;
+      sourceRef.current = source;
+      dataRef.current = dataArray;
+
+      function tick() {
+        if (!analyserRef.current || !dataRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataRef.current as unknown as Uint8Array<ArrayBuffer>);
+        setData(new Uint8Array(dataRef.current)); // Need new array reference to trigger render
+        rafRef.current = requestAnimationFrame(tick);
+      }
+      rafRef.current = requestAnimationFrame(tick);
+
+      return () => {
+        cancelAnimationFrame(rafRef.current);
+        source.disconnect();
+        analyser.disconnect();
+        ctx.close().catch(() => {});
+      };
+    } catch {
+      setData(null);
+    }
+  }, [track]);
+
+  return data;
+}
+
+/**
+ * Returns FFT data for the first remote audio track.
+ */
+export function useRemoteAudioFrequency(room: Room | undefined): Uint8Array | null {
+  const [remoteTrack, setRemoteTrack] = useState<MediaStreamTrack | null>(null);
+  useEffect(() => {
+    if (!room) return;
+    function update() {
+      let found = false;
+      room!.remoteParticipants.forEach((p) => {
+        p.trackPublications.forEach((pub) => {
+          if (pub.track && pub.track.kind === Track.Kind.Audio && pub.isSubscribed) {
+            if (pub.track.mediaStreamTrack) {
+              setRemoteTrack(pub.track.mediaStreamTrack);
+              found = true;
+            }
+          }
+        });
+      });
+      if (!found) setRemoteTrack(null);
+    }
+    room.on(RoomEvent.TrackSubscribed, update);
+    room.on(RoomEvent.TrackUnsubscribed, update);
+    update();
+    return () => {
+      room.off(RoomEvent.TrackSubscribed, update);
+      room.off(RoomEvent.TrackUnsubscribed, update);
+    };
+  }, [room]);
+  return useAudioFrequency(remoteTrack);
+}
+
+/**
  * Returns the local microphone MediaStreamTrack from the room's local participant.
  */
 export function useLocalMicTrack(room: Room | undefined): MediaStreamTrack | null {

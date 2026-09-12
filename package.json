@@ -1,17 +1,22 @@
 {
-  "name": "classcast",
+  "name": "stentor",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "vite --host",
     "server": "node server.js",
-    "start": "node server.js",
-    "lint": "oxlint",
+    "livekit": "livekit-server --dev",
+    "start": "concurrently -n server,vite -c cyan,green \"npm run server\" \"npm run dev\"",
+    "start:full": "concurrently -n server,vite,livekit -c cyan,green,magenta \"npm run server\" \"npm run dev\" \"npm run livekit\"",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@livekit/components-react": "^2.9.24",
     "@tailwindcss/vite": "^4.3.3",
     "@types/ws": "^8.18.1",
@@ -35,8 +40,8 @@
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.1.0",
+    "concurrently": "^10.0.5",
     "oxlint": "^1.79.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.2"

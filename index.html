@@ -3,16 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0F172A" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="ClassCast" />
-    <meta name="description" content="ClassCast — Stream classroom audio to student phones over local WiFi." />
+    <title>Stentor — Classroom WiFi Audio Broadcast</title>
+    
+    <!-- PWA / Meta -->
+    <meta name="description" content="Direct classroom audio broadcast over local WiFi. Zero internet required. Four architecture modes for lecture halls." />
+    <meta name="theme-color" content="#0D1D1F" />
+    <meta name="apple-mobile-web-app-title" content="Stentor" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
-    <title>ClassCast</title>
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:title" content="Stentor Audio Broadcast" />
+    <meta property="og:description" content="Classroom audio broadcast over local WiFi. Zero internet required." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    
   </head>
-  <body>
+  <body class="antialiased selection:bg-[#1DCCE0]/30">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

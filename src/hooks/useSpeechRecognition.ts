@@ -3,11 +3,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 interface SpeechRecognitionHookProps {
   onTranscript?: (text: string, isFinal: boolean) => void;
   lang?: string;
+  onError?: (errorMessage: string) => void;
 }
 
 export function useSpeechRecognition({
   onTranscript,
   lang = 'en-IN',
+  onError,
 }: SpeechRecognitionHookProps = {}) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -47,8 +49,13 @@ export function useSpeechRecognition({
       }
     };
 
-    recognition.onerror = (event: Event) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onerror = (event: any) => {
       console.warn('Speech recognition notice:', event);
+      if (event.error === 'network') {
+        onError?.('Captions unavailable � no internet connection');
+        setIsListening(false);
+      }
     };
 
     recognition.onend = () => {

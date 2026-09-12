@@ -103,6 +103,10 @@ export function useWsAudio({
   const recordedChunks = useRef<Int16Array[]>([]);
   const recordingTimer = useRef<number | null>(null);
 
+  // FFT analyser for real frequency data (student visualizer)
+  const analyserNode = useRef<AnalyserNode | null>(null);
+  const fftDataArray = useRef<Uint8Array | null>(null);
+
   const ws = useRef<WebSocket | null>(null);
 
   // Teacher capture & DSP refs
@@ -111,7 +115,7 @@ export function useWsAudio({
   const scriptProcessor = useRef<ScriptProcessorNode | null>(null);
   const isBroadcastingRef = useRef(false);
   const gateHoldCounter = useRef(0);
-  const gateGainRef = useRef(0.0); // Continuous envelope follower (0.0 to 1.0)
+  const gateGainRef = useRef(0.0);
   const sentSilenceFrameRef = useRef(false);
 
   const noiseGateModeRef = useRef<NoiseGateMode>('normal');
@@ -211,7 +215,14 @@ export function useWsAudio({
         speakerDampFilter.current.frequency.value =
           outputModeRef.current === 'speaker' ? 4500 : 12000;
 
-        speakerDampFilter.current.connect(masterGain.current);
+        // Create AnalyserNode for real FFT frequency visualization
+        analyserNode.current = playbackCtx.current.createAnalyser();
+        analyserNode.current.fftSize = 64;
+        analyserNode.current.smoothingTimeConstant = 0.75;
+        fftDataArray.current = new Uint8Array(analyserNode.current.frequencyBinCount);
+
+        speakerDampFilter.current.connect(analyserNode.current);
+        analyserNode.current.connect(masterGain.current);
         masterGain.current.connect(playbackCtx.current.destination);
       }
 
@@ -224,6 +235,15 @@ export function useWsAudio({
       return false;
     }
   }, [playTestTone, volume]);
+
+  // Get real FFT frequency data for visualizer bars
+  const getFrequencyData = useCallback((): Uint8Array | null => {
+    if (analyserNode.current && fftDataArray.current) {
+      analyserNode.current.getByteFrequencyData(fftDataArray.current as any);
+      return fftDataArray.current;
+    }
+    return null;
+  }, []);
 
   const setVolume = useCallback((v: number) => {
     const effectiveVolume = outputModeRef.current === 'speaker' ? Math.min(v, 0.75) : v;
@@ -300,7 +320,7 @@ export function useWsAudio({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ClassCast-Lecture-${roomCode}-${new Date().toISOString().substring(0, 10)}.wav`;
+    a.download = `Stentor-Lecture-${roomCode}-${new Date().toISOString().substring(0, 10)}.wav`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -323,7 +343,7 @@ export function useWsAudio({
         sumSquares += s * s;
       }
 
-      // Soft cosine crossfade at buffer boundaries (De-Clicker: stops pop/click artifacts)
+      // Soft cosine crossfade at buffer boundaries (De-Clicker)
       const rampLen = Math.min(24, float32.length);
       for (let i = 0; i < rampLen; i++) {
         const factor = 0.5 * (1 - Math.cos((Math.PI * i) / rampLen));
@@ -355,14 +375,19 @@ export function useWsAudio({
           speakerDampFilter.current.frequency.value =
             outputModeRef.current === 'speaker' ? 4500 : 12000;
 
-          speakerDampFilter.current.connect(masterGain.current);
+          analyserNode.current = ctx.createAnalyser();
+          analyserNode.current.fftSize = 64;
+          analyserNode.current.smoothingTimeConstant = 0.75;
+          fftDataArray.current = new Uint8Array(analyserNode.current.frequencyBinCount);
+
+          speakerDampFilter.current.connect(analyserNode.current);
+          analyserNode.current.connect(masterGain.current);
           masterGain.current.connect(ctx.destination);
         }
 
         source.connect(speakerDampFilter.current);
 
         const now = ctx.currentTime;
-        // Jitter buffer with smooth 55ms lead time (prevents buffer underrun crackles)
         if (nextPlayTime.current < now || nextPlayTime.current > now + 0.45) {
           nextPlayTime.current = now + 0.055;
         }
@@ -457,7 +482,6 @@ export function useWsAudio({
     return () => {
       isCleanedUp = true;
       if (ws.current) {
-        // Prevent Chrome warning: don't call close while CONNECTING
         if (ws.current.readyState === WebSocket.CONNECTING) {
           const s = ws.current;
           s.onopen = () => s.close();
@@ -468,7 +492,7 @@ export function useWsAudio({
     };
   }, [role, roomCode, userName, handleIncomingPcm]);
 
-  // Teacher Start Microphone with Analog-Style Soft Envelope Fade (No Digital Pops)
+  // Teacher Start Microphone with Analog-Style Soft Envelope Fade
   const startMic = useCallback(async () => {
     if (role !== 'teacher') return;
 
@@ -551,7 +575,7 @@ export function useWsAudio({
         const isVoiceActive = rms >= gateThreshold;
 
         if (isVoiceActive) {
-          gateHoldCounter.current = 8; // Hold open for ~320ms to prevent choppy words
+          gateHoldCounter.current = 8;
           setIsGateOpen(true);
         } else if (gateHoldCounter.current > 0) {
           gateHoldCounter.current--;
@@ -563,7 +587,6 @@ export function useWsAudio({
         const targetGain =
           currentMode === 'off' || isVoiceActive || gateHoldCounter.current > 0 ? 1.0 : 0.0;
 
-        // If completely faded out to silence and silence frame was already sent, sleep
         if (targetGain === 0.0 && gateGainRef.current < 0.001 && sentSilenceFrameRef.current) {
           return;
         }
@@ -571,11 +594,9 @@ export function useWsAudio({
         const downsampled = downsample(inputChannel, actx.sampleRate, TRANSMIT_SAMPLE_RATE);
         const int16 = new Int16Array(downsampled.length);
 
-        // Smooth sample-by-sample exponential envelope follower (Soft Fade-In / Soft Fade-Out)
-        // Completely eliminates DC step pops, clicks, and distortion when speaker stops!
         let g = gateGainRef.current;
         for (let i = 0; i < downsampled.length; i++) {
-          const alpha = targetGain > g ? 0.05 : 0.012; // Fast 15ms attack, gentle 35ms analog decay
+          const alpha = targetGain > g ? 0.05 : 0.012;
           g += (targetGain - g) * alpha;
           const s = downsampled[i] * g;
           int16[i] = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
@@ -588,7 +609,6 @@ export function useWsAudio({
           sentSilenceFrameRef.current = false;
         }
 
-        // Record into memory if recording is active
         if (isRecordingRef.current) {
           recordedChunks.current.push(new Int16Array(int16));
         }
@@ -687,5 +707,7 @@ export function useWsAudio({
     startRecording,
     stopRecording,
     downloadRecording,
+    // Real FFT data for visualizer
+    getFrequencyData,
   };
 }

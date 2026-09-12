@@ -1,10 +1,11 @@
-// ClassCast Offline Service Worker
-const CACHE_NAME = 'classcast-v1';
+// Stentor Offline Service Worker
+const CACHE_NAME = 'stentor-v1';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/favicon.svg',
+  '/offline.html',
 ];
 
 self.addEventListener('install', (event) => {
@@ -60,7 +61,7 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           if (event.request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('/index.html');
+            return caches.match('/offline.html');
           }
           return new Response('Offline - No cached resource available', {
             status: 503,

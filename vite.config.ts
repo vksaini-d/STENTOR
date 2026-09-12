@@ -1,19 +1,21 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import basicSsl from '@vitejs/plugin-basic-ssl'
+import fs from 'fs'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(), 
     tailwindcss(),
-    // Forces HTTPS for local dev so mobile browsers allow microphone access!
-    basicSsl() 
   ],
   server: {
     host: '0.0.0.0', // Allow local network access
     port: 3000,
+    https: {
+      key: fs.readFileSync('./.cert/key.pem'),
+      cert: fs.readFileSync('./.cert/cert.pem'),
+    },
     proxy: {
       // Proxy API requests to our Node.js token server
       '/api': {

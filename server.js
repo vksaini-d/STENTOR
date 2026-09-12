@@ -30,77 +30,7 @@ const PORT_WS = 3002;
 const API_KEY = process.env.LIVEKIT_API_KEY || 'devkey';
 const API_SECRET = process.env.LIVEKIT_API_SECRET || 'secret';
 
-// ─────────────────────────────────────────────
-//  Auto-start LiveKit SFU if available locally
-// ─────────────────────────────────────────────
-let livekitProcess = null;
-
-function autoStartLiveKit() {
-  const testReq = http.get('http://127.0.0.1:7880', () => {
-    console.log('⚡ [LiveKit] LiveKit SFU server is already running on port 7880.');
-  });
-
-  testReq.on('error', (err) => {
-    if (err.code === 'ECONNREFUSED') {
-      const lkBinName = process.platform === 'win32' ? 'livekit-server.exe' : 'livekit-server';
-      const localLkBin = path.join(__dirname, lkBinName);
-
-      if (fs.existsSync(localLkBin)) {
-        console.log(`\n🚀 [LiveKit Auto-Start] Launching embedded LiveKit SFU (${lkBinName} --dev)...`);
-        try {
-          livekitProcess = spawn(localLkBin, ['--dev'], {
-            stdio: ['ignore', 'pipe', 'pipe'],
-            windowsHide: true,
-          });
-
-          livekitProcess.stdout?.on('data', (chunk) => {
-            const str = chunk.toString();
-            if (str.includes('started') || str.includes('listening')) {
-              console.log(`[LiveKit SFU] ${str.trim()}`);
-            }
-          });
-
-          livekitProcess.on('error', (spawnErr) => {
-            console.warn(`[LiveKit] Could not auto-start LiveKit: ${spawnErr.message}`);
-          });
-
-          livekitProcess.on('exit', (code) => {
-            if (code !== 0 && code !== null) {
-              console.log(`[LiveKit] Process exited with code ${code}`);
-            }
-          });
-
-          console.log(`✅ [LiveKit SFU] Running in background on port 7880 (keys: devkey / secret)`);
-        } catch (e) {
-          console.warn(`[LiveKit Auto-Start Error]:`, e.message);
-        }
-      } else {
-        console.log(`ℹ️ [LiveKit] ${lkBinName} not found in root. Architecture 1 & 4 (WebSocket PCM) are fully active.`);
-      }
-    }
-  });
-
-  testReq.setTimeout(1500, () => {
-    testReq.destroy();
-  });
-}
-
-// Clean up child process on server exit
-process.on('exit', () => {
-  if (livekitProcess) {
-    try { livekitProcess.kill(); } catch {}
-  }
-});
-process.on('SIGINT', () => {
-  if (livekitProcess) {
-    try { livekitProcess.kill(); } catch {}
-  }
-  process.exit(0);
-});
 process.on('SIGTERM', () => {
-  if (livekitProcess) {
-    try { livekitProcess.kill(); } catch {}
-  }
   process.exit(0);
 });
 
@@ -120,10 +50,10 @@ function getAllNetworkIps() {
         let label = 'LAN / WiFi';
         let type = 'lan';
         if (iface.address.startsWith('192.168.137.')) {
-          label = '🔥 Windows Hotspot (Arch 1 & 2)';
+          label = '🔥 Windows Hotspot';
           type = 'hotspot';
         } else if (iface.address.startsWith('192.168.0.') || iface.address.startsWith('192.168.1.')) {
-          label = '📡 Dedicated WiFi Router (Arch 3)';
+          label = '📡 Dedicated WiFi Router';
           type = 'router';
         } else if (name.toLowerCase().includes('wi-fi') || name.toLowerCase().includes('wireless')) {
           label = 'Wi-Fi Network';
@@ -379,13 +309,11 @@ httpServer.on('upgrade', (request, socket, head) => {
 
 httpServer.listen(PORT_HTTP, '0.0.0.0', () => {
   console.log('\n=============================================================');
-  console.log('       🎙️  ClassCast Server (Arch 1, 2, 3 & 4 Active)         ');
+  console.log('       🎙️  Stentor Server         ');
   console.log('=============================================================');
   console.log(`\n🚀 HTTP + Static Server listening on port: ${PORT_HTTP}`);
   console.log(`📡 WebSocket Audio Server listening on port: ${PORT_WS} (and /arch1-ws on ${PORT_HTTP})`);
 
-  // Auto-start LiveKit WebRTC SFU for Architecture 2 & 3
-  autoStartLiveKit();
 
   console.log('\n📱 CONNECT PHONES TO ANY OF THESE ADDRESSES:');
   for (const item of ips) {
@@ -393,9 +321,7 @@ httpServer.listen(PORT_HTTP, '0.0.0.0', () => {
     console.log(`${prefix} http://${item.address}:${PORT_HTTP}  or  https://${item.address}:3000   (${item.label})`);
   }
   console.log('\n📋 AVAILABLE ARCHITECTURES:');
-  console.log('  1. Phone Hotspot Lite (8-10 students, zero laptop)');
-  console.log('  2. Laptop Hotspot + LiveKit (10-15 students)');
-  console.log('  3. Router + Laptop + LiveKit (30-100+ students, Attendance Roster)');
-  console.log('  4. Pure Custom WebSocket PCM (20-50 students, Lecture Recording)');
+  console.log('  1. Stentor Voice Relay (WebSocket)');
+  console.log('  2. Stentor High-Fidelity (WebRTC)');
   console.log('=============================================================\n');
 });
